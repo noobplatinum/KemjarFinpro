@@ -1,6 +1,6 @@
 /**
  * Admin Routes - NO AUTHENTICATION
- * ⚠️ CRITICAL VULNERABILITY: Admin endpoints exposed without any auth!
+ * Admin endpoints exposed without any auth!
  */
 
 const express = require('express');

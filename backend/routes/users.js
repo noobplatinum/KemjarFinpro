@@ -1,6 +1,5 @@
 /**
  * Users Routes - NO AUTHENTICATION
- * All endpoints are publicly accessible
  */
 
 const express = require('express');

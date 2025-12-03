@@ -8,7 +8,7 @@ const path = require('path');
 const db = require('../database/db');
 
 async function initializeDatabase() {
-    console.log('🚀 Initializing Crystal Gacha Database...\n');
+    console.log('Initializing Crystal Gacha Database...\n');
     
     try {
         // Read schema file
@@ -25,21 +25,21 @@ async function initializeDatabase() {
             if (statement.length > 0) {
                 try {
                     await db.query(statement);
-                    console.log('✅ Executed:', statement.substring(0, 50) + '...');
+                    console.log('Executed:', statement.substring(0, 50) + '...');
                 } catch (err) {
                     // Ignore "already exists" errors
                     if (!err.message.includes('already exists')) {
-                        console.error('⚠️  Warning:', err.message);
+                        console.error('Warning:', err.message);
                     }
                 }
             }
         }
         
-        console.log('\n✨ Database initialized successfully!');
-        console.log('📝 Run "npm run db:seed" to add sample cards');
+        console.log('\nDatabase initialized successfully!');
+        console.log('Run "npm run db:seed" to add sample cards');
         
     } catch (error) {
-        console.error('❌ Failed to initialize database:', error);
+        console.error('Failed to initialize database:', error);
     } finally {
         process.exit(0);
     }

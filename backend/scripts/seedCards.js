@@ -217,11 +217,11 @@ async function seedDatabase() {
                  VALUES ($1, $2, $3, $4, $5)`,
                 [user.username, user.email, user.password_hash, user.crystals, user.vip_level]
             );
-            console.log(`   ✅ Added user: ${user.username}`);
+            console.log(`Added user: ${user.username}`);
         }
 
         // Seed cards
-        console.log('\n🃏 Adding cards...');
+        console.log('\nAdding cards...');
         for (const card of cards) {
             await db.query(
                 `INSERT INTO cards (name, description, rarity, attack, defense, speed, magic, 
@@ -239,7 +239,7 @@ async function seedDatabase() {
         }
 
         // Give player1 some starting cards
-        console.log('\n🎁 Giving starting inventory to player1...');
+        console.log('\nGiving starting inventory to player1...');
         const player1 = await db.query('SELECT id FROM users WHERE username = $1', ['player1']);
         const starterCards = await db.query('SELECT id FROM cards WHERE rarity = $1 LIMIT 3', ['common']);
         
@@ -251,7 +251,7 @@ async function seedDatabase() {
         }
 
         // Add a sample banner
-        console.log('\n🎪 Adding sample banner...');
+        console.log('\nAdding sample banner...');
         const featuredCard = await db.query('SELECT id FROM cards WHERE rarity = $1 LIMIT 1', ['legendary']);
         await db.query(
             `INSERT INTO banners (name, description, featured_card_id, rate_up_multiplier, start_date, end_date) 
@@ -259,15 +259,15 @@ async function seedDatabase() {
             ['Legendary Blob Festival', 'Rate up for Primordial Blob!', featuredCard.rows[0].id, 2.00]
         );
 
-        console.log('\n✨ Database seeded successfully!');
-        console.log('\n📊 Summary:');
+        console.log('\nDatabase seeded successfully!');
+        console.log('\nSummary:');
         console.log(`   • ${users.length} users created`);
         console.log(`   • ${cards.length} cards created`);
         console.log(`   • 1 active banner created`);
-        console.log('\n🎮 Ready to play! Start the server with: npm run dev');
+        console.log('\nReady to play! Start the server with: npm run dev');
 
     } catch (error) {
-        console.error('❌ Failed to seed database:', error);
+        console.error('Failed to seed database:', error);
     } finally {
         process.exit(0);
     }

@@ -1,17 +1,3 @@
-/**
- * ⚠️  VULNERABLE API - NO AUTHENTICATION ⚠️
- * 
- * This API is intentionally vulnerable for penetration testing purposes.
- * DO NOT USE IN PRODUCTION!
- * 
- * Vulnerabilities:
- * 1. No authentication on any endpoint
- * 2. No authorization checks
- * 3. Direct user ID manipulation
- * 4. Exposed admin endpoints
- * 5. No rate limiting
- */
-
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
