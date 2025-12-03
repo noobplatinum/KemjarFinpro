@@ -1,14 +1,15 @@
 /**
- * Users Routes - NO AUTHENTICATION
- * All endpoints are publicly accessible
+ * Users Routes - SECURED WITH JWT AUTHENTICATION
+ * All endpoints require proper authentication
  */
 
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
+const { authenticateToken, requireAdmin, requireOwnerOrAdmin } = require('../middleware/auth');
 
-// GET /api/users - List ALL users (VULNERABLE: exposes all user data)
-router.get('/', async (req, res) => {
+// GET /api/users - List ALL users (Admin only)
+router.get('/', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const result = await db.query(
             'SELECT id, username, email, crystals, vip_level, created_at FROM users ORDER BY id'
@@ -19,8 +20,8 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET /api/users/:id - Get specific user (VULNERABLE: no auth check)
-router.get('/:id', async (req, res) => {
+// GET /api/users/:id - Get specific user (Owner or Admin only)
+router.get('/:id', authenticateToken, requireOwnerOrAdmin('id'), async (req, res) => {
     try {
         const { id } = req.params;
         const result = await db.query(
@@ -38,36 +39,26 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// POST /api/users - Create new user
+// POST /api/users - Create new user (Use /api/auth/register instead)
 router.post('/', async (req, res) => {
-    try {
-        const { username, email, password } = req.body;
-        
-        // Simple validation
-        if (!username || !email || !password) {
-            return res.status(400).json({ error: 'Missing required fields' });
-        }
-        
-        const result = await db.query(
-            `INSERT INTO users (username, email, password_hash, crystals) 
-             VALUES ($1, $2, $3, 500) RETURNING id, username, email, crystals, vip_level, created_at`,
-            [username, email, password] // VULNERABLE: storing plain password
-        );
-        
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        if (error.code === '23505') { // Unique violation
-            return res.status(400).json({ error: 'Username or email already exists' });
-        }
-        res.status(500).json({ error: error.message });
-    }
+    res.status(400).json({ 
+        error: 'Use /api/auth/register to create new accounts',
+        message: 'Direct user creation is disabled for security'
+    });
 });
 
-// PUT /api/users/:id - Update user (VULNERABLE: anyone can update any user)
-router.put('/:id', async (req, res) => {
+// PUT /api/users/:id - Update user (Owner or Admin only)
+router.put('/:id', authenticateToken, requireOwnerOrAdmin('id'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { username, email, crystals, vip_level } = req.body;
+        const { username, email } = req.body;
+        
+        // Only admin can modify crystals and vip_level
+        let crystals, vip_level;
+        if (req.user.role === 'admin') {
+            crystals = req.body.crystals;
+            vip_level = req.body.vip_level;
+        }
         
         const result = await db.query(
             `UPDATE users 
@@ -91,8 +82,8 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// DELETE /api/users/:id - Delete user (VULNERABLE: anyone can delete any user)
-router.delete('/:id', async (req, res) => {
+// DELETE /api/users/:id - Delete user (Admin only)
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const result = await db.query(
@@ -110,8 +101,8 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
-// GET /api/users/:id/inventory - Get user's card collection
-router.get('/:id/inventory', async (req, res) => {
+// GET /api/users/:id/inventory - Get user's card collection (Owner or Admin only)
+router.get('/:id/inventory', authenticateToken, requireOwnerOrAdmin('id'), async (req, res) => {
     try {
         const { id } = req.params;
         
@@ -133,8 +124,8 @@ router.get('/:id/inventory', async (req, res) => {
     }
 });
 
-// PUT /api/users/:id/inventory/:cardId/favorite - Toggle favorite
-router.put('/:id/inventory/:cardId/favorite', async (req, res) => {
+// PUT /api/users/:id/inventory/:cardId/favorite - Toggle favorite (Owner only)
+router.put('/:id/inventory/:cardId/favorite', authenticateToken, requireOwnerOrAdmin('id'), async (req, res) => {
     try {
         const { id, cardId } = req.params;
         

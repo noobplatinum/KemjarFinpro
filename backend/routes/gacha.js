@@ -1,11 +1,12 @@
 /**
- * Gacha Routes - NO AUTHENTICATION
- * Pull mechanics with no user verification
+ * Gacha Routes - SECURED WITH JWT AUTHENTICATION
+ * Pull mechanics with proper user verification
  */
 
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
+const { authenticateToken, requireOwnerOrAdmin } = require('../middleware/auth');
 
 const GACHA_COST = parseInt(process.env.GACHA_COST) || 100;
 const MULTI_DISCOUNT = 0.9; // 10% discount on 10-pull
@@ -43,8 +44,8 @@ async function selectCard(rarity) {
     return result.rows[0];
 }
 
-// POST /api/gacha/pull/:userId - Single pull (VULNERABLE: no auth, just userId)
-router.post('/pull/:userId', async (req, res) => {
+// POST /api/gacha/pull/:userId - Single pull (Authenticated, owner only)
+router.post('/pull/:userId', authenticateToken, requireOwnerOrAdmin('userId'), async (req, res) => {
     try {
         const { userId } = req.params;
         
@@ -126,8 +127,8 @@ router.post('/pull/:userId', async (req, res) => {
     }
 });
 
-// POST /api/gacha/pull10/:userId - 10x pull with discount
-router.post('/pull10/:userId', async (req, res) => {
+// POST /api/gacha/pull10/:userId - 10x pull with discount (Authenticated, owner only)
+router.post('/pull10/:userId', authenticateToken, requireOwnerOrAdmin('userId'), async (req, res) => {
     try {
         const { userId } = req.params;
         const totalCost = Math.floor(GACHA_COST * 10 * MULTI_DISCOUNT);
@@ -216,8 +217,8 @@ router.post('/pull10/:userId', async (req, res) => {
     }
 });
 
-// GET /api/gacha/history/:userId - Get pull history (VULNERABLE: can see anyone's history)
-router.get('/history/:userId', async (req, res) => {
+// GET /api/gacha/history/:userId - Get pull history (Authenticated, owner only)
+router.get('/history/:userId', authenticateToken, requireOwnerOrAdmin('userId'), async (req, res) => {
     try {
         const { userId } = req.params;
         const { limit = 50 } = req.query;

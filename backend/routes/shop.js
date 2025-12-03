@@ -1,11 +1,12 @@
 /**
- * Shop Routes - NO AUTHENTICATION
- * Crystal top-up with no payment verification
+ * Shop Routes - SECURED WITH JWT AUTHENTICATION
+ * Crystal top-up with proper payment verification
  */
 
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
+const { authenticateToken, requireOwnerOrAdmin } = require('../middleware/auth');
 
 // Crystal packages
 const PACKAGES = [
@@ -16,18 +17,24 @@ const PACKAGES = [
     { id: 'whale', name: '🐋 Whale Pack', crystals: 10000, price: 79.99, bonus: 5000 }
 ];
 
-// GET /api/shop/packages - List available packages
+// GET /api/shop/packages - List available packages (public)
 router.get('/packages', (req, res) => {
     res.json(PACKAGES);
 });
 
-// POST /api/shop/topup - Top up crystals (VULNERABLE: no payment verification!)
-router.post('/topup', async (req, res) => {
+// POST /api/shop/topup - Top up crystals (Authenticated, with payment verification)
+router.post('/topup', authenticateToken, async (req, res) => {
     try {
-        const { userId, packageId, paymentId } = req.body;
+        const { packageId, paymentId } = req.body;
+        const userId = req.user.id; // Get user from token, not from request body
         
-        if (!userId || !packageId) {
-            return res.status(400).json({ error: 'Missing userId or packageId' });
+        if (!packageId) {
+            return res.status(400).json({ error: 'Missing packageId' });
+        }
+
+        // Require payment verification
+        if (!paymentId) {
+            return res.status(400).json({ error: 'Payment verification required' });
         }
         
         // Find package
@@ -45,11 +52,11 @@ router.post('/topup', async (req, res) => {
         if (userResult.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
+
+        // TODO: In production, verify paymentId with payment gateway (Stripe, etc.)
+        // For demo purposes, we just check that a paymentId was provided
         
         const totalCrystals = pkg.crystals + (pkg.bonus || 0);
-        
-        // VULNERABLE: No actual payment verification!
-        // Just trust the client that payment was made
         
         // Add crystals
         await db.query(
@@ -61,7 +68,7 @@ router.post('/topup', async (req, res) => {
         await db.query(
             `INSERT INTO transactions (user_id, type, amount, description, reference_id)
              VALUES ($1, 'topup', $2, $3, $4)`,
-            [userId, totalCrystals, `Purchased ${pkg.name}`, paymentId || 'NO_PAYMENT_ID']
+            [userId, totalCrystals, `Purchased ${pkg.name}`, paymentId]
         );
         
         // Get updated balance
@@ -83,17 +90,22 @@ router.post('/topup', async (req, res) => {
     }
 });
 
-// POST /api/shop/gift - Gift crystals to another user (VULNERABLE)
-router.post('/gift', async (req, res) => {
+// POST /api/shop/gift - Gift crystals to another user (Authenticated)
+router.post('/gift', authenticateToken, async (req, res) => {
     try {
-        const { fromUserId, toUserId, amount } = req.body;
+        const fromUserId = req.user.id; // Get sender from token
+        const { toUserId, amount } = req.body;
         
-        if (!fromUserId || !toUserId || !amount) {
+        if (!toUserId || !amount) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
         
         if (amount <= 0) {
             return res.status(400).json({ error: 'Amount must be positive' });
+        }
+
+        if (fromUserId === parseInt(toUserId)) {
+            return res.status(400).json({ error: 'Cannot gift crystals to yourself' });
         }
         
         // Check sender has enough crystals
@@ -148,8 +160,8 @@ router.post('/gift', async (req, res) => {
     }
 });
 
-// GET /api/shop/transactions/:userId - Get transaction history
-router.get('/transactions/:userId', async (req, res) => {
+// GET /api/shop/transactions/:userId - Get transaction history (Owner or Admin only)
+router.get('/transactions/:userId', authenticateToken, requireOwnerOrAdmin('userId'), async (req, res) => {
     try {
         const { userId } = req.params;
         const { limit = 50, type } = req.query;

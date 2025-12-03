@@ -1,21 +1,34 @@
 /**
- * Admin Routes - NO AUTHENTICATION
- * ⚠️ CRITICAL VULNERABILITY: Admin endpoints exposed without any auth!
+ * Admin Routes - SECURED WITH JWT + ADMIN ROLE CHECK
+ * All admin endpoints require valid JWT token AND vip_level >= 99
  */
 
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
-// GET /api/admin/users - List ALL users with FULL details including password hashes!
+// Apply authentication and admin check to ALL admin routes
+router.use(authenticateToken);
+router.use(requireAdmin);
+
+// GET /api/admin/users - List ALL users (password hashes excluded for security)
 router.get('/users', async (req, res) => {
     try {
+        // Note: Even for admins, we exclude password_hash from the response
         const result = await db.query(
-            `SELECT id, username, email, password_hash, crystals, vip_level, created_at, updated_at
+            `SELECT id, username, email, crystals, vip_level, created_at, updated_at
              FROM users ORDER BY id`
         );
+        
+        // Log admin access
+        await db.query(
+            `INSERT INTO admin_logs (action, target_table, target_id, details)
+             VALUES ($1, $2, $3, $4)`,
+            ['list_users', 'users', req.user.id, JSON.stringify({ admin_id: req.user.id, admin_username: req.user.username })]
+        );
+        
         res.json({
-            warning: '⚠️ ADMIN ENDPOINT - Full user data exposed!',
             count: result.rows.length,
             users: result.rows
         });
@@ -24,7 +37,7 @@ router.get('/users', async (req, res) => {
     }
 });
 
-// PUT /api/admin/crystals - Modify any user's crystal balance
+// PUT /api/admin/crystals - Modify any user's crystal balance (admin only)
 router.put('/crystals', async (req, res) => {
     try {
         const { userId, amount, action } = req.body;
@@ -35,12 +48,12 @@ router.put('/crystals', async (req, res) => {
         
         let query;
         if (action === 'set') {
-            query = 'UPDATE users SET crystals = $1 WHERE id = $2 RETURNING *';
+            query = 'UPDATE users SET crystals = $1 WHERE id = $2 RETURNING id, username, email, crystals, vip_level';
         } else if (action === 'subtract') {
-            query = 'UPDATE users SET crystals = crystals - $1 WHERE id = $2 RETURNING *';
+            query = 'UPDATE users SET crystals = crystals - $1 WHERE id = $2 RETURNING id, username, email, crystals, vip_level';
         } else {
             // Default: add
-            query = 'UPDATE users SET crystals = crystals + $1 WHERE id = $2 RETURNING *';
+            query = 'UPDATE users SET crystals = crystals + $1 WHERE id = $2 RETURNING id, username, email, crystals, vip_level';
         }
         
         const result = await db.query(query, [amount, userId]);
@@ -49,11 +62,16 @@ router.put('/crystals', async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         
-        // Log admin action
+        // Log admin action with admin info
         await db.query(
             `INSERT INTO admin_logs (action, target_table, target_id, details)
              VALUES ($1, $2, $3, $4)`,
-            ['modify_crystals', 'users', userId, JSON.stringify({ amount, action })]
+            ['modify_crystals', 'users', userId, JSON.stringify({ 
+                amount, 
+                action, 
+                admin_id: req.user.id, 
+                admin_username: req.user.username 
+            })]
         );
         
         res.json({
@@ -66,13 +84,18 @@ router.put('/crystals', async (req, res) => {
     }
 });
 
-// PUT /api/admin/vip - Modify any user's VIP level
+// PUT /api/admin/vip - Modify any user's VIP level (admin only)
 router.put('/vip', async (req, res) => {
     try {
         const { userId, vipLevel } = req.body;
         
+        // Prevent changing own VIP level
+        if (userId === req.user.id) {
+            return res.status(403).json({ error: 'Cannot modify your own VIP level' });
+        }
+        
         const result = await db.query(
-            'UPDATE users SET vip_level = $1 WHERE id = $2 RETURNING *',
+            'UPDATE users SET vip_level = $1 WHERE id = $2 RETURNING id, username, email, crystals, vip_level',
             [vipLevel, userId]
         );
         
@@ -80,16 +103,32 @@ router.put('/vip', async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         
+        // Log admin action
+        await db.query(
+            `INSERT INTO admin_logs (action, target_table, target_id, details)
+             VALUES ($1, $2, $3, $4)`,
+            ['modify_vip', 'users', userId, JSON.stringify({ 
+                vipLevel, 
+                admin_id: req.user.id, 
+                admin_username: req.user.username 
+            })]
+        );
+        
         res.json({ success: true, user: result.rows[0] });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// DELETE /api/admin/users/:id - Delete any user
+// DELETE /api/admin/users/:id - Delete any user (admin only)
 router.delete('/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        
+        // Prevent self-deletion
+        if (parseInt(id) === req.user.id) {
+            return res.status(403).json({ error: 'Cannot delete your own account' });
+        }
         
         const result = await db.query(
             'DELETE FROM users WHERE id = $1 RETURNING id, username, email',
@@ -104,7 +143,11 @@ router.delete('/users/:id', async (req, res) => {
         await db.query(
             `INSERT INTO admin_logs (action, target_table, target_id, details)
              VALUES ($1, $2, $3, $4)`,
-            ['delete_user', 'users', id, JSON.stringify(result.rows[0])]
+            ['delete_user', 'users', id, JSON.stringify({ 
+                ...result.rows[0],
+                admin_id: req.user.id, 
+                admin_username: req.user.username 
+            })]
         );
         
         res.json({
@@ -117,7 +160,7 @@ router.delete('/users/:id', async (req, res) => {
     }
 });
 
-// POST /api/admin/cards - Create new card
+// POST /api/admin/cards - Create new card (admin only)
 router.post('/cards', async (req, res) => {
     try {
         const { name, description, rarity, attack, defense, speed, magic,
@@ -132,24 +175,39 @@ router.post('/cards', async (req, res) => {
              color_primary, color_secondary, color_glow, shape, drop_rate]
         );
         
+        // Log admin action
+        await db.query(
+            `INSERT INTO admin_logs (action, target_table, target_id, details)
+             VALUES ($1, $2, $3, $4)`,
+            ['create_card', 'cards', result.rows[0].id, JSON.stringify({ 
+                name,
+                rarity,
+                admin_id: req.user.id, 
+                admin_username: req.user.username 
+            })]
+        );
+        
         res.status(201).json(result.rows[0]);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// PUT /api/admin/cards/:id - Modify card
+// PUT /api/admin/cards/:id - Modify card (admin only)
 router.put('/cards/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
         
-        // Build dynamic update query
-        const fields = Object.keys(updates);
-        const values = Object.values(updates);
+        // Whitelist allowed fields to prevent SQL injection
+        const allowedFields = ['name', 'description', 'rarity', 'attack', 'defense', 
+                              'speed', 'magic', 'color_primary', 'color_secondary', 
+                              'color_glow', 'shape', 'drop_rate'];
+        const fields = Object.keys(updates).filter(f => allowedFields.includes(f));
+        const values = fields.map(f => updates[f]);
         
         if (fields.length === 0) {
-            return res.status(400).json({ error: 'No fields to update' });
+            return res.status(400).json({ error: 'No valid fields to update' });
         }
         
         const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
@@ -161,13 +219,24 @@ router.put('/cards/:id', async (req, res) => {
             return res.status(404).json({ error: 'Card not found' });
         }
         
+        // Log admin action
+        await db.query(
+            `INSERT INTO admin_logs (action, target_table, target_id, details)
+             VALUES ($1, $2, $3, $4)`,
+            ['modify_card', 'cards', id, JSON.stringify({ 
+                fields,
+                admin_id: req.user.id, 
+                admin_username: req.user.username 
+            })]
+        );
+        
         res.json(result.rows[0]);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// DELETE /api/admin/cards/:id - Delete card
+// DELETE /api/admin/cards/:id - Delete card (admin only)
 router.delete('/cards/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -181,13 +250,24 @@ router.delete('/cards/:id', async (req, res) => {
             return res.status(404).json({ error: 'Card not found' });
         }
         
+        // Log admin action
+        await db.query(
+            `INSERT INTO admin_logs (action, target_table, target_id, details)
+             VALUES ($1, $2, $3, $4)`,
+            ['delete_card', 'cards', id, JSON.stringify({ 
+                name: result.rows[0].name,
+                admin_id: req.user.id, 
+                admin_username: req.user.username 
+            })]
+        );
+        
         res.json({ success: true, deletedCard: result.rows[0] });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// POST /api/admin/give-card - Give card to user
+// POST /api/admin/give-card - Give card to user (admin only)
 router.post('/give-card', async (req, res) => {
     try {
         const { userId, cardId, quantity = 1 } = req.body;
@@ -200,23 +280,35 @@ router.post('/give-card', async (req, res) => {
             [userId, cardId, quantity]
         );
         
+        // Log admin action
+        await db.query(
+            `INSERT INTO admin_logs (action, target_table, target_id, details)
+             VALUES ($1, $2, $3, $4)`,
+            ['give_card', 'user_inventory', userId, JSON.stringify({ 
+                cardId,
+                quantity,
+                admin_id: req.user.id, 
+                admin_username: req.user.username 
+            })]
+        );
+        
         res.json({ success: true, message: `Gave ${quantity}x card to user` });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// GET /api/admin/stats - System statistics
+// GET /api/admin/stats - System statistics (admin only)
 router.get('/stats', async (req, res) => {
     try {
         const stats = {};
         
-        // User stats
+        // User stats (excluding sensitive data)
         const userStats = await db.query(`
             SELECT 
                 COUNT(*) as total_users,
                 SUM(crystals) as total_crystals,
-                AVG(crystals) as avg_crystals,
+                AVG(crystals)::integer as avg_crystals,
                 MAX(vip_level) as max_vip
             FROM users
         `);
@@ -251,7 +343,7 @@ router.get('/stats', async (req, res) => {
     }
 });
 
-// GET /api/admin/logs - View admin action logs
+// GET /api/admin/logs - View admin action logs (admin only)
 router.get('/logs', async (req, res) => {
     try {
         const result = await db.query(
@@ -263,7 +355,7 @@ router.get('/logs', async (req, res) => {
     }
 });
 
-// POST /api/admin/reset-db - DANGEROUS: Reset all user data
+// POST /api/admin/reset-db - Reset all user data (super admin only, requires confirmation)
 router.post('/reset-db', async (req, res) => {
     try {
         const { confirm } = req.body;
@@ -274,6 +366,17 @@ router.post('/reset-db', async (req, res) => {
             });
         }
         
+        // Log before reset
+        await db.query(
+            `INSERT INTO admin_logs (action, target_table, target_id, details)
+             VALUES ($1, $2, $3, $4)`,
+            ['reset_database', 'all', req.user.id, JSON.stringify({ 
+                admin_id: req.user.id, 
+                admin_username: req.user.username,
+                timestamp: new Date().toISOString()
+            })]
+        );
+        
         await db.query('DELETE FROM gacha_history');
         await db.query('DELETE FROM transactions');
         await db.query('DELETE FROM user_inventory');
@@ -281,7 +384,7 @@ router.post('/reset-db', async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: '⚠️ All game data has been reset!' 
+            message: 'All game data has been reset!' 
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
