@@ -87,6 +87,44 @@ export interface Transaction {
   created_at: string;
 }
 
+// Middleman types (for pentest training feature)
+export interface Middleman {
+  id: number;
+  username: string;
+  email: string;
+  created_at: string;
+}
+
+export interface TransferResult {
+  success: boolean;
+  message: string;
+  transfer: {
+    from: { id: number; username: string };
+    to: { id: number; username: string };
+    amount?: number;
+    card?: { id: number; name: string };
+    quantity?: number;
+    executedBy: string;
+  };
+}
+
+export interface MiddlemanLog {
+  id: number;
+  middleman_id: number;
+  middleman_name: string;
+  action_type: string;
+  from_user_id: number;
+  from_username: string;
+  to_user_id: number;
+  to_username: string;
+  transfer_type: 'crystals' | 'card';
+  amount?: number;
+  card_id?: number;
+  card_name?: string;
+  quantity?: number;
+  created_at: string;
+}
+
 // API Functions
 export const api = {
   users: {
@@ -159,5 +197,88 @@ export const api = {
         body: JSON.stringify({ userId, amount, action }),
       }),
     getStats: () => request<Record<string, unknown>>('/admin/stats'),
+  },
+
+  // Middleman API - INTENTIONALLY INSECURE for Pentest Training
+  middleman: {
+    // Auth endpoints (vulnerable)
+    register: (data: { username: string; email: string; password: string }) =>
+      request<{ message: string; middleman: Middleman }>('/transfer/register', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        credentials: 'include',
+      }),
+    
+    login: (data: { email: string; password: string }) =>
+      request<{ message: string; middleman: Middleman }>('/transfer/login', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        credentials: 'include',
+      }),
+    
+    logout: () =>
+      request<{ message: string }>('/transfer/logout', {
+        credentials: 'include',
+      }),
+    
+    getProfile: () =>
+      request<Middleman>('/transfer/profile', {
+        credentials: 'include',
+      }),
+    
+    // VULNERABLE: IDOR - can change ANY middleman's password by providing userid
+    changePassword: (data: { userid?: number; new_password: string }) =>
+      request<{ message: string }>('/transfer/change-password', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        credentials: 'include',
+      }),
+    
+    // VULNERABLE: Predictable token returned in response
+    requestReset: (email: string) =>
+      request<{ message: string; resetLink?: string; token?: string }>('/transfer/request-reset', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+    
+    // VULNERABLE: Token is just base64(userId), no expiry
+    resetPassword: (data: { token: string; new_password: string }) =>
+      request<{ message: string }>('/transfer/reset', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    // Transfer endpoints (middleman power - no user consent needed)
+    transferCrystals: (data: { fromUserId: number; toUserId: number; amount: number }) =>
+      request<TransferResult>('/transfer/crystals', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        credentials: 'include',
+      }),
+    
+    transferCards: (data: { fromUserId: number; toUserId: number; cardId: number; quantity?: number }) =>
+      request<TransferResult>('/transfer/cards', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        credentials: 'include',
+      }),
+    
+    // Get all users (for middleman to select from/to)
+    getUsers: () =>
+      request<User[]>('/transfer/users', {
+        credentials: 'include',
+      }),
+    
+    // Get user's inventory (for card transfers)
+    getUserInventory: (userId: number) =>
+      request<InventoryItem[]>(`/transfer/users/${userId}/inventory`, {
+        credentials: 'include',
+      }),
+    
+    // Get transfer logs
+    getLogs: () =>
+      request<MiddlemanLog[]>('/transfer/logs', {
+        credentials: 'include',
+      }),
   },
 };

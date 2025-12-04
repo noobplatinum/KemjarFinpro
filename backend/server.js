@@ -1,13 +1,19 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());  // Allow all origins - also vulnerable!
+app.use(cors({
+    origin: true,  // Allow all origins - also vulnerable!
+    credentials: true  // Allow cookies for middleman auth
+}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));  // For form submissions
+app.use(cookieParser());  // INSECURE: cookies not signed
 
 // Import routes
 const userRoutes = require('./routes/users');
@@ -15,6 +21,7 @@ const cardRoutes = require('./routes/cards');
 const gachaRoutes = require('./routes/gacha');
 const shopRoutes = require('./routes/shop');
 const adminRoutes = require('./routes/admin');
+const transferRoutes = require('./routes/transfer');
 
 // API Routes - ALL UNPROTECTED!
 app.use('/api/users', userRoutes);
@@ -22,6 +29,7 @@ app.use('/api/cards', cardRoutes);
 app.use('/api/gacha', gachaRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/admin', adminRoutes);  // Admin routes exposed without auth!
+app.use('/api/transfer', transferRoutes);  // Middleman routes - intentionally insecure!
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -33,7 +41,8 @@ app.get('/', (req, res) => {
             cards: '/api/cards',
             gacha: '/api/gacha',
             shop: '/api/shop',
-            admin: '/api/admin'
+            admin: '/api/admin',
+            transfer: '/api/transfer (Middleman - INSECURE!)'
         },
         warning: '⚠️ This API has no authentication - for testing only!'
     });
@@ -59,7 +68,17 @@ app.get('/api', (req, res) => {
             { method: 'GET', path: '/api/admin/users', desc: '⚠️ Admin: List all users with details' },
             { method: 'PUT', path: '/api/admin/crystals', desc: '⚠️ Admin: Modify user crystals' },
             { method: 'DELETE', path: '/api/admin/users/:id', desc: '⚠️ Admin: Delete user' },
-            { method: 'GET', path: '/api/admin/stats', desc: '⚠️ Admin: Get system stats' }
+            { method: 'GET', path: '/api/admin/stats', desc: '⚠️ Admin: Get system stats' },
+            { method: 'POST', path: '/api/transfer/register', desc: '🔐 Middleman: Register (plain text password!)' },
+            { method: 'POST', path: '/api/transfer/login', desc: '🔐 Middleman: Login (unsigned cookie!)' },
+            { method: 'GET', path: '/api/transfer/logout', desc: '🔐 Middleman: Logout' },
+            { method: 'GET', path: '/api/transfer/profile', desc: '🔐 Middleman: Profile (trusts cookie blindly!)' },
+            { method: 'POST', path: '/api/transfer/change-password', desc: '🔐 Middleman: Change password (IDOR vulnerability!)' },
+            { method: 'POST', path: '/api/transfer/request-reset', desc: '🔐 Middleman: Request reset (predictable token!)' },
+            { method: 'POST', path: '/api/transfer/reset', desc: '🔐 Middleman: Reset password (no expiry!)' },
+            { method: 'POST', path: '/api/transfer/crystals', desc: '💎 Middleman: Transfer crystals (no user consent!)' },
+            { method: 'POST', path: '/api/transfer/cards', desc: '🃏 Middleman: Transfer cards (no user consent!)' },
+            { method: 'GET', path: '/api/transfer/logs', desc: '📜 Middleman: View transfer logs' }
         ]
     });
 });

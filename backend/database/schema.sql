@@ -108,6 +108,38 @@ CREATE TABLE admin_logs (
 );
 
 -- ===========================================
+-- Middleman System (INTENTIONALLY INSECURE)
+-- ===========================================
+
+-- Middlemen Table
+-- INSECURE: stores plain text passwords for pentest training
+CREATE TABLE middlemen (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,  -- INSECURE: plain text password storage!
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Middleman Transfer Logs
+-- Tracks all transfers executed by middlemen
+CREATE TABLE middleman_logs (
+    id SERIAL PRIMARY KEY,
+    middleman_id INTEGER REFERENCES middlemen(id) ON DELETE SET NULL,
+    action_type VARCHAR(20) NOT NULL,  -- 'transfer'
+    from_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    to_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    transfer_type VARCHAR(20),  -- 'crystals' or 'card'
+    amount INTEGER,              -- for crystal transfers
+    card_id INTEGER REFERENCES cards(id) ON DELETE SET NULL,
+    quantity INTEGER,            -- for card transfers
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_middleman_logs_middleman ON middleman_logs(middleman_id);
+CREATE INDEX idx_middleman_logs_created ON middleman_logs(created_at);
+
+-- ===========================================
 -- Indexes for Performance
 -- ===========================================
 

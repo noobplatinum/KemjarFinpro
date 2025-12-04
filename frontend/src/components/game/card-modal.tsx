@@ -4,8 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/lib/api';
 import { RARITY_CONFIG, Rarity } from '@/lib/constants';
 import { Creature } from './creature';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Swords, Shield, Zap, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -31,6 +30,7 @@ export function CardDetailModal({ card, open, onClose }: CardDetailModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
+      <DialogTitle>{card?.name ?? 'Card Details'}</DialogTitle>
       <DialogContent className="max-w-md border-slate-800 bg-slate-950 p-0 overflow-hidden">
         {/* Header with gradient */}
         <div
@@ -46,17 +46,8 @@ export function CardDetailModal({ card, open, onClose }: CardDetailModalProps) {
               background: `radial-gradient(circle at center, ${card.color_glow}, transparent 70%)`,
             }}
           />
-          
+
           <Creature card={card} size="lg" />
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-2 text-white/60 hover:text-white hover:bg-white/10"
-            onClick={onClose}
-          >
-            <X className="h-5 w-5" />
-          </Button>
         </div>
 
         {/* Content */}

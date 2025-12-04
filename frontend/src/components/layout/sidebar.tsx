@@ -14,6 +14,7 @@ import {
   User,
   Gem,
   Menu,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -27,6 +28,7 @@ const navigation = [
   { name: 'Collection', href: '/collection', icon: Library },
   { name: 'Catalog', href: '/catalog', icon: BookOpen },
   { name: 'Shop', href: '/shop', icon: Store },
+  { name: 'Middleman', href: '/transfer', icon: Shield },
 ];
 
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {
