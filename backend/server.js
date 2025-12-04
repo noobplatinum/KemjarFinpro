@@ -13,6 +13,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const app = express();
@@ -24,6 +25,7 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json());
+app.use(cookieParser('kemjar-finpro-secret-2025'));
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -32,6 +34,7 @@ const cardRoutes = require('./routes/cards');
 const gachaRoutes = require('./routes/gacha');
 const shopRoutes = require('./routes/shop');
 const adminRoutes = require('./routes/admin');
+const transferRoutes = require('./routes/transfer');
 
 // API Routes
 app.use('/api/auth', authRoutes);      // Login/Register (public)
@@ -40,6 +43,7 @@ app.use('/api/cards', cardRoutes);     // Card catalog (public read)
 app.use('/api/gacha', gachaRoutes);    // Gacha pulls (authenticated)
 app.use('/api/shop', shopRoutes);      // Shop & transactions (authenticated)
 app.use('/api/admin', adminRoutes);    // Admin only (admin role required)
+app.use('/api/transfer', transferRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -52,7 +56,8 @@ app.get('/', (req, res) => {
             cards: '/api/cards',
             gacha: '/api/gacha',
             shop: '/api/shop',
-            admin: '/api/admin (requires admin token)'
+            admin: '/api/admin (requires admin token)',
+            transfer: '/api/transfer'
         },
         note: 'This API uses JWT authentication. Login at POST /api/auth/login'
     });
@@ -86,7 +91,23 @@ app.get('/api', (req, res) => {
             { method: 'PUT', path: '/api/admin/crystals', desc: 'Modify user crystals' },
             { method: 'DELETE', path: '/api/admin/users/:id', desc: 'Delete user' },
             { method: 'GET', path: '/api/admin/stats', desc: 'Get system stats' }
-        ]
+        ],
+        middlemanEndpoints: {
+            auth: [
+                { method: 'POST', path: '/api/transfer/register', desc: 'Middleman: Register (plain text password)' },
+                { method: 'POST', path: '/api/transfer/login', desc: 'Middleman: Login (unsigned cookie)' },
+                { method: 'GET', path: '/api/transfer/logout', desc: 'Middleman: Logout' },
+                { method: 'GET', path: '/api/transfer/profile', desc: 'Middleman: Profile (trusts cookie blindly)' },
+                { method: 'POST', path: '/api/transfer/change-password', desc: 'Middleman: Change password (IDOR vulnerability)' },
+            ],
+            transfer: [
+                { method: 'POST', path: '/api/transfer/crystals', desc: 'Middleman: Transfer crystals (no user consent)' },
+                { method: 'POST', path: '/api/transfer/cards', desc: 'Middleman: Transfer cards (no user consent)' },
+                { method: 'GET', path: '/api/transfer/logs', desc: 'Middleman: View transfer logs' },
+                { method: 'GET', path: '/api/transfer/users', desc: 'Middleman: List all users' },
+                { method: 'GET', path: '/api/transfer/users/:id/inventory', desc: 'Middleman: Get user inventory' }
+            ]
+        }
     });
 });
 

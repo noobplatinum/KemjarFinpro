@@ -1,18 +1,59 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
+// CSRF Token cache
+let csrfToken: string | null = null;
+
+// Ambil CSRF token dari backend
+async function fetchCsrfToken(): Promise<string> {
+  if (csrfToken) return csrfToken;
+  
+  const response = await fetch(`${API_URL}/transfer/csrf-token`, {
+    credentials: 'include',
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch CSRF token');
+  }
+  
+  const data = await response.json();
+  csrfToken = data.csrfToken;
+  return csrfToken ?? '';
+}
+
+// Clear cached CSRF token (call after logout or on error)
+export function clearCsrfToken() {
+  csrfToken = null;
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_URL}${endpoint}`;
   
-  const defaultOptions: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-    },
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
   };
+  
+  // Add CSRF token for POST/PUT/DELETE requests to /transfer endpoints
+  if (endpoint.startsWith('/transfer') && options.method && ['POST', 'PUT', 'DELETE'].includes(options.method)) {
+    try {
+      const token = await fetchCsrfToken();
+      headers['X-CSRF-Token'] = token;
+    } catch (error) {
+      console.warn('Could not fetch CSRF token:', error);
+    }
+  }
 
-  const response = await fetch(url, { ...defaultOptions, ...options });
+  const response = await fetch(url, { 
+    ...options,
+    headers,
+  });
   const data = await response.json();
 
   if (!response.ok) {
+    // If CSRF token is invalid, clear cache and let caller retry
+    if (data.code === 'EBADCSRFTOKEN' || response.status === 403) {
+      clearCsrfToken();
+    }
     throw new Error(data.error || 'API request failed');
   }
 
@@ -84,6 +125,44 @@ export interface Transaction {
   amount: number;
   description: string;
   reference_id?: string;
+  created_at: string;
+}
+
+// Middleman types (for pentest training feature)
+export interface Middleman {
+  id: number;
+  username: string;
+  email: string;
+  created_at: string;
+}
+
+export interface TransferResult {
+  success: boolean;
+  message: string;
+  transfer: {
+    from: { id: number; username: string };
+    to: { id: number; username: string };
+    amount?: number;
+    card?: { id: number; name: string };
+    quantity?: number;
+    executedBy: string;
+  };
+}
+
+export interface MiddlemanLog {
+  id: number;
+  middleman_id: number;
+  middleman_name: string;
+  action_type: string;
+  from_user_id: number;
+  from_username: string;
+  to_user_id: number;
+  to_username: string;
+  transfer_type: 'crystals' | 'card';
+  amount?: number;
+  card_id?: number;
+  card_name?: string;
+  quantity?: number;
   created_at: string;
 }
 
@@ -159,5 +238,88 @@ export const api = {
         body: JSON.stringify({ userId, amount, action }),
       }),
     getStats: () => request<Record<string, unknown>>('/admin/stats'),
+  },
+
+  // Middleman API - INTENTIONALLY INSECURE for Pentest Training
+  middleman: {
+    // Auth endpoints (vulnerable)
+    register: (data: { username: string; email: string; password: string }) =>
+      request<{ message: string; middleman: Middleman }>('/transfer/register', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        credentials: 'include',
+      }),
+    
+    login: (data: { email: string; password: string }) =>
+      request<{ message: string; middleman: Middleman }>('/transfer/login', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        credentials: 'include',
+      }),
+    
+    logout: () =>
+      request<{ message: string }>('/transfer/logout', {
+        credentials: 'include',
+      }),
+    
+    getProfile: () =>
+      request<Middleman>('/transfer/profile', {
+        credentials: 'include',
+      }),
+    
+    // SECURED: Now requires current password verification (IDOR fixed)
+    changePassword: (data: { current_password: string; new_password: string }) =>
+      request<{ message: string }>('/transfer/change-password', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        credentials: 'include',
+      }),
+    
+    // VULNERABLE: Predictable token returned in response
+    requestReset: (email: string) =>
+      request<{ message: string; resetLink?: string; token?: string }>('/transfer/request-reset', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+    
+    // VULNERABLE: Token is just base64(userId), no expiry
+    resetPassword: (data: { token: string; new_password: string }) =>
+      request<{ message: string }>('/transfer/reset', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    // Transfer endpoints (middleman power - no user consent needed)
+    transferCrystals: (data: { fromUserId: number; toUserId: number; amount: number }) =>
+      request<TransferResult>('/transfer/crystals', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        credentials: 'include',
+      }),
+    
+    transferCards: (data: { fromUserId: number; toUserId: number; cardId: number; quantity?: number }) =>
+      request<TransferResult>('/transfer/cards', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        credentials: 'include',
+      }),
+    
+    // Get all users (for middleman to select from/to)
+    getUsers: () =>
+      request<User[]>('/transfer/users', {
+        credentials: 'include',
+      }),
+    
+    // Get user's inventory (for card transfers)
+    getUserInventory: (userId: number) =>
+      request<InventoryItem[]>(`/transfer/users/${userId}/inventory`, {
+        credentials: 'include',
+      }),
+    
+    // Get transfer logs
+    getLogs: () =>
+      request<MiddlemanLog[]>('/transfer/logs', {
+        credentials: 'include',
+      }),
   },
 };
