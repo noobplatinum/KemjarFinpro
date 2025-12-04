@@ -44,7 +44,7 @@ app.get('/', (req, res) => {
             admin: '/api/admin',
             transfer: '/api/transfer (Middleman - INSECURE!)'
         },
-        warning: '⚠️ This API has no authentication - for testing only!'
+        warning: 'This API has no authentication - for testing only!'
     });
 });
 
@@ -65,20 +65,18 @@ app.get('/api', (req, res) => {
             { method: 'GET', path: '/api/gacha/history/:userId', desc: 'Get pull history' },
             { method: 'POST', path: '/api/shop/topup', desc: 'Top up crystals' },
             { method: 'GET', path: '/api/shop/transactions/:userId', desc: 'Get transaction history' },
-            { method: 'GET', path: '/api/admin/users', desc: '⚠️ Admin: List all users with details' },
-            { method: 'PUT', path: '/api/admin/crystals', desc: '⚠️ Admin: Modify user crystals' },
-            { method: 'DELETE', path: '/api/admin/users/:id', desc: '⚠️ Admin: Delete user' },
-            { method: 'GET', path: '/api/admin/stats', desc: '⚠️ Admin: Get system stats' },
-            { method: 'POST', path: '/api/transfer/register', desc: '🔐 Middleman: Register (plain text password!)' },
-            { method: 'POST', path: '/api/transfer/login', desc: '🔐 Middleman: Login (unsigned cookie!)' },
-            { method: 'GET', path: '/api/transfer/logout', desc: '🔐 Middleman: Logout' },
-            { method: 'GET', path: '/api/transfer/profile', desc: '🔐 Middleman: Profile (trusts cookie blindly!)' },
-            { method: 'POST', path: '/api/transfer/change-password', desc: '🔐 Middleman: Change password (IDOR vulnerability!)' },
-            { method: 'POST', path: '/api/transfer/request-reset', desc: '🔐 Middleman: Request reset (predictable token!)' },
-            { method: 'POST', path: '/api/transfer/reset', desc: '🔐 Middleman: Reset password (no expiry!)' },
-            { method: 'POST', path: '/api/transfer/crystals', desc: '💎 Middleman: Transfer crystals (no user consent!)' },
-            { method: 'POST', path: '/api/transfer/cards', desc: '🃏 Middleman: Transfer cards (no user consent!)' },
-            { method: 'GET', path: '/api/transfer/logs', desc: '📜 Middleman: View transfer logs' }
+            { method: 'GET', path: '/api/admin/users', desc: 'Admin: List all users with details' },
+            { method: 'PUT', path: '/api/admin/crystals', desc: 'Admin: Modify user crystals' },
+            { method: 'DELETE', path: '/api/admin/users/:id', desc: 'Admin: Delete user' },
+            { method: 'GET', path: '/api/admin/stats', desc: 'Admin: Get system stats' },
+            { method: 'POST', path: '/api/transfer/register', desc: 'Middleman: Register (plain text password!)' },
+            { method: 'POST', path: '/api/transfer/login', desc: 'Middleman: Login (unsigned cookie!)' },
+            { method: 'GET', path: '/api/transfer/logout', desc: 'Middleman: Logout' },
+            { method: 'GET', path: '/api/transfer/profile', desc: 'Middleman: Profile (trusts cookie blindly!)' },
+            { method: 'POST', path: '/api/transfer/change-password', desc: 'Middleman: Change password (IDOR vulnerability!)' },
+            { method: 'POST', path: '/api/transfer/crystals', desc: 'Middleman: Transfer crystals (no user consent!)' },
+            { method: 'POST', path: '/api/transfer/cards', desc: 'Middleman: Transfer cards (no user consent!)' },
+            { method: 'GET', path: '/api/transfer/logs', desc: 'Middleman: View transfer logs' }
         ]
     });
 });
@@ -101,7 +99,7 @@ app.listen(PORT, () => {
 ║   🔮 Crystal Gacha API Server                             ║
 ║   Running on: http://localhost:${PORT}                    ║
 ║                                                           ║
-║   ⚠️  WARNING: No Authentication Enabled!                ║
+║    WARNING: No Authentication Enabled!                ║
 ║   This server is intentionally vulnerable.                ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
