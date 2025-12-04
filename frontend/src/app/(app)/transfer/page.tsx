@@ -286,11 +286,9 @@ export default function TransferPage() {
                     </div>
 
                     <Tabs defaultValue="login" className="w-full">
-                        <TabsList className="grid w-full grid-cols-4">
+                        <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="login">Login</TabsTrigger>
                             <TabsTrigger value="register">Register</TabsTrigger>
-                            <TabsTrigger value="reset-request">Request Reset</TabsTrigger>
-                            <TabsTrigger value="reset">Reset Password</TabsTrigger>
                         </TabsList>
 
                         {/* Login Tab */}
@@ -394,83 +392,6 @@ export default function TransferPage() {
                                         </div>
                                         <Button type="submit" className="w-full" disabled={isLoading}>
                                             {isLoading ? 'Registering...' : 'Register'}
-                                        </Button>
-                                    </form>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
-                        {/* Request Reset Tab */}
-                        <TabsContent value="reset-request">
-                            <Card className="border-slate-800 bg-slate-900/50">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Key className="h-5 w-5" />
-                                        Request Password Reset
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Request a password reset token to reset a middleman password
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <form onSubmit={handleRequestReset} className="space-y-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="reset-email">Email</Label>
-                                            <Input
-                                                id="reset-email"
-                                                type="email"
-                                                value={resetRequestEmail}
-                                                onChange={(e) => setResetRequestEmail(e.target.value)}
-                                                required
-                                                className="border-slate-700 bg-slate-800"
-                                            />
-                                        </div>
-                                        <Button type="submit" className="w-full" disabled={isLoading}>
-                                            {isLoading ? 'Requesting...' : 'Request Reset Link'}
-                                        </Button>
-                                    </form>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
-                        {/* Reset Password Tab */}
-                        <TabsContent value="reset">
-                            <Card className="border-slate-800 bg-slate-900/50">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Key className="h-5 w-5" />
-                                        Reset Password
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Use the reset token to set a new password
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <form onSubmit={handleResetPassword} className="space-y-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="reset-token">Reset Token</Label>
-                                            <Input
-                                                id="reset-token"
-                                                value={resetData.token}
-                                                onChange={(e) => setResetData({ ...resetData, token: e.target.value })}
-                                                placeholder="e.g., MQ== (base64 of user ID)"
-                                                required
-                                                className="border-slate-700 bg-slate-800"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="new-password">New Password</Label>
-                                            <Input
-                                                id="new-password"
-                                                type="password"
-                                                value={resetData.new_password}
-                                                onChange={(e) => setResetData({ ...resetData, new_password: e.target.value })}
-                                                required
-                                                className="border-slate-700 bg-slate-800"
-                                            />
-                                        </div>
-                                        <Button type="submit" className="w-full" disabled={isLoading}>
-                                            {isLoading ? 'Resetting...' : 'Reset Password'}
                                         </Button>
                                     </form>
                                 </CardContent>
@@ -735,23 +656,22 @@ export default function TransferPage() {
                             </CardContent>
                         </Card>
 
-                        {/* Change Password Card (IDOR Vulnerability) */}
+                        {/* Change Password Card */}
                         <Card className="border-red-500/30 bg-red-950/10">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2 text-red-400">
                                     <AlertTriangle className="h-5 w-5" />
-                                    Change Password (IDOR!)
+                                    Change Password
                                 </CardTitle>
                                 <CardDescription className="text-red-300/70">
-                                    Vulnerability: Can change ANY middleman&apos;s password by providing their ID
+                                    Please provide a new password to change your password.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <form onSubmit={handleChangePassword} className="space-y-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="target-userid">
-                                            Target User ID{' '}
-                                            <span className="text-xs text-slate-500">(leave empty for self)</span>
+                                            User ID
                                         </Label>
                                         <Input
                                             id="target-userid"

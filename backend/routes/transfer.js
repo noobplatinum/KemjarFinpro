@@ -1,47 +1,19 @@
-/**
- * Middleman Routes - INTENTIONALLY INSECURE for Pentest Practice
- * 
- * Security vulnerabilities included:
- * - Cookie is not signed, not httpOnly, no CSRF protection
- * - Trusting request body and cookie blindly
- * - No rate-limiting
- * - No email confirmation for password reset
- * - Predictable reset tokens (base64 of user id)
- * - IDOR: can change any middleman's password by providing userid in body
- * - Plain text password storage
- */
-
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 
-// -----------------
-// Middleman Auth Routes (VULNERABLE)
-// -----------------
-
 // GET / - Info endpoint
 router.get('/', (req, res) => {
     res.json({
-        message: 'Middleman API (Insecure for Pentest Training)',
-        warning: 'This API has intentional security vulnerabilities!',
+        message: 'Middleman API',
         endpoints: {
-            auth: ['/register', '/login', '/logout', '/profile', '/change-password', '/request-reset', '/reset'],
+            auth: ['/register', '/login', '/logout', '/profile', '/change-password'],
             transfer: ['/crystals', '/cards', '/logs']
-        },
-        vulnerabilities: [
-            'Unsigned cookies',
-            'No httpOnly flag',
-            'No CSRF protection',
-            'IDOR in change-password',
-            'Predictable reset tokens',
-            'No rate limiting',
-            'Plain text passwords'
-        ]
+        }
     });
 });
 
 // POST /register - Register new middleman
-// INSECURE: stores password in plain text
 router.post('/register', async (req, res) => {
     try {
         const { username, email, password } = req.body;
@@ -50,7 +22,6 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // INSECURE: storing plain text password
         const result = await db.query(
             `INSERT INTO middlemen (username, email, password) 
        VALUES ($1, $2, $3) 
@@ -71,7 +42,6 @@ router.post('/register', async (req, res) => {
 });
 
 // POST /login { email, password }
-// INSECURE: cookie is not signed, not httpOnly, and no CSRF protection
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -87,15 +57,13 @@ router.post('/login', async (req, res) => {
 
         const middleman = result.rows[0];
 
-        // INSECURE: plain text password comparison
         if (middleman.password !== password) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // INSECURE: cookie is not signed, not httpOnly, and no CSRF protection
         res.cookie('middleman_userid', middleman.id, {
-            httpOnly: false,  // INSECURE: accessible via JavaScript
-            signed: false,    // INSECURE: not signed
+            httpOnly: false,
+            signed: false,
             sameSite: 'lax',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
@@ -120,7 +88,6 @@ router.get('/logout', (req, res) => {
 });
 
 // GET /profile - shows basic info based on cookie only
-// INSECURE: trusts cookie blindly, no session validation
 router.get('/profile', async (req, res) => {
     try {
         const middlemanId = req.cookies?.middleman_userid;
@@ -145,13 +112,10 @@ router.get('/profile', async (req, res) => {
 });
 
 // POST /change-password { userid?, new_password }
-// VULNERABILITY: IDOR - attacker can change ANY middleman's password by providing userid in body
-// Does NOT require current password. Missing authorization checks.
 router.post('/change-password', async (req, res) => {
     try {
-        // INSECURE: Intentionally trusting the request body and cookie in a dangerous way
-        const actorId = req.cookies?.middleman_userid; // no session authenticity
-        const targetId = req.body.userid || actorId;   // IDOR: attacker can change other users by providing userid
+        const actorId = req.cookies?.middleman_userid;
+        const targetId = req.body.userid || actorId;
         const newPassword = req.body.new_password;
 
         if (!targetId) {
@@ -172,107 +136,12 @@ router.post('/change-password', async (req, res) => {
             return res.status(400).json({ error: 'Target not found' });
         }
 
-        // INSECURE: no check of current password, no CSRF token, no MFA, no re-authentication
         await db.query(
             'UPDATE middlemen SET password = $1 WHERE id = $2',
             [newPassword, targetId]
         );
 
         res.json({ message: `Password for middleman ${targetId} changed` });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// POST /request-reset { email }
-// INSECURE: Returns a reset link with a PREDICTABLE token (base64 of user id)
-// No rate-limiting, no email confirmation step
-router.post('/request-reset', async (req, res) => {
-    try {
-        const { email } = req.body;
-
-        const result = await db.query(
-            'SELECT id FROM middlemen WHERE email = $1',
-            [email]
-        );
-
-        // Always return same message to prevent user enumeration (but we expose token anyway!)
-        if (result.rows.length === 0) {
-            return res.json({ message: 'If account exists, reset link generated' });
-        }
-
-        const middleman = result.rows[0];
-
-        // INSECURE: predictable token based on user id (not random, not time-limited)
-        const token = Buffer.from(String(middleman.id)).toString('base64');
-        const resetLink = `http://localhost:3000/api/transfer/reset?token=${token}`; // HTTP, not HTTPS
-
-        // INSECURE: In a real app you'd send email. Here we return the link directly
-        res.json({
-            message: 'Reset link generated (insecure)',
-            resetLink: resetLink,
-            token: token  // INSECURE: exposing token directly
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// GET /reset?token=... - show simple form (for browser testing)
-router.get('/reset', (req, res) => {
-    const token = req.query.token || '';
-    res.send(`
-    <html>
-      <head><title>Password Reset</title></head>
-      <body>
-        <h3>Middleman Password Reset</h3>
-        <form method="POST" action="/api/transfer/reset">
-          <input type="hidden" name="token" value="${token}" />
-          <label>New password: <input type="password" name="new_password" /></label>
-          <button type="submit">Reset</button>
-        </form>
-        <p style="color: red;">⚠️ This reset mechanism is intentionally insecure!</p>
-      </body>
-    </html>
-  `);
-});
-
-// POST /reset { token, new_password }
-// INSECURE: does not validate token securely; token is predictable and not expiry-checked
-// No rate-limiting, no email confirmation step
-router.post('/reset', async (req, res) => {
-    try {
-        const { token, new_password } = req.body;
-
-        if (!token || !new_password) {
-            return res.status(400).json({ error: 'Missing fields' });
-        }
-
-        // INSECURE: token is simply base64(userId). No verification beyond decoding.
-        let middlemanId;
-        try {
-            middlemanId = Buffer.from(token, 'base64').toString('utf8');
-        } catch (e) {
-            return res.status(400).json({ error: 'Invalid token' });
-        }
-
-        // Check if middleman exists
-        const checkResult = await db.query(
-            'SELECT id FROM middlemen WHERE id = $1',
-            [middlemanId]
-        );
-
-        if (checkResult.rows.length === 0) {
-            return res.status(400).json({ error: 'Invalid token' });
-        }
-
-        // INSECURE: no token expiry, no one-time use check
-        await db.query(
-            'UPDATE middlemen SET password = $1 WHERE id = $2',
-            [new_password, middlemanId]
-        );
-
-        res.json({ message: 'Password reset successfully (insecure)' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -303,8 +172,7 @@ async function requireMiddleman(req, res, next) {
     next();
 }
 
-// POST /crystals - Transfer crystals between users (NO USER CONFIRMATION NEEDED)
-// Middleman has absolute power
+// POST /crystals - Transfer crystals between users
 router.post('/crystals', requireMiddleman, async (req, res) => {
     try {
         const { fromUserId, toUserId, amount } = req.body;
@@ -349,7 +217,7 @@ router.post('/crystals', requireMiddleman, async (req, res) => {
 
         const receiver = receiverResult.rows[0];
 
-        // Execute transfer (MIDDLEMAN POWER - no user confirmation needed)
+        // Execute transfer
         await db.query('BEGIN');
 
         try {
@@ -407,8 +275,7 @@ router.post('/crystals', requireMiddleman, async (req, res) => {
     }
 });
 
-// POST /cards - Transfer cards between users (NO USER CONFIRMATION NEEDED)
-// Middleman has absolute power
+// POST /cards - Transfer cards between users
 router.post('/cards', requireMiddleman, async (req, res) => {
     try {
         const { fromUserId, toUserId, cardId, quantity = 1 } = req.body;

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>🎁 Crystal Gacha - Special Reward!</title>
+    <link rel="stylesheet" href="styles.css" type="text/css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Initial State -->
+        <div id="initial-state">
+            <div class="badge">⚡ LIMITED TIME OFFER ⚡</div>
+            <h1>🎊 Congratulations! 🎊</h1>
+            <p style="color: #aaa; margin-bottom: 10px;">You've been selected as a lucky winner!</p>
+
+            <div class="reward-box">
+                <div class="crystal-icon">💎</div>
+                <div class="reward-amount">10,000</div>
+                <div class="reward-label">FREE CRYSTALS</div>
+            </div>
+
+            <p style="color: #ccc; line-height: 1.6;">
+                As part of our anniversary celebration, you've won <strong>10,000 FREE crystals</strong>!
+                Click the button below to instantly add them to your account!
+            </p>
+
+            <button class="claim-btn" onclick="claimReward()">
+                🎁 CLAIM MY REWARD
+            </button>
+
+            <div class="urgency">
+                ⚠️ This offer expires in <span class="timer" id="countdown">4:59</span>!
+                <br><small>Only 3 rewards remaining!</small>
+            </div>
+
+            <p class="fine-print">
+                *By claiming this reward, you agree to our terms of service.
+                Crystals will be added to your linked account automatically.
+            </p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="loading">
+            <h1>🔄 Processing...</h1>
+            <div class="spinner"></div>
+            <p style="color: #aaa;">Adding crystals to your account...</p>
+            <p style="color: #666; font-size: 0.9em; margin-top: 15px;">Please wait, do not close this page.</p>
+        </div>
+
+        <!-- Success State -->
+        <div id="success-state" class="success-state">
+            <div class="success-icon">✅</div>
+            <h1 style="color: #4ade80;">Success!</h1>
+            <p style="color: #aaa; font-size: 1.2em; margin: 20px 0;">
+                <strong>10,000 crystals</strong> have been added to your account!
+            </p>
+            <div class="reward-box" style="border-color: #4ade80;">
+                <p style="color: #4ade80; font-size: 1.1em;">🎉 Thank you for participating! 🎉</p>
+                <p style="color: #888; margin-top: 10px;">You can close this page now.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
