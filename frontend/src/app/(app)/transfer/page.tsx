@@ -302,7 +302,7 @@ export default function TransferPage() {
                                         Middleman Login
                                     </CardTitle>
                                     <CardDescription>
-                                        Insecure: Cookie not signed, not httpOnly
+                                        Login to your approved middleman account
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
@@ -355,7 +355,7 @@ export default function TransferPage() {
                                         Register Middleman
                                     </CardTitle>
                                     <CardDescription>
-                                        Insecure: Password stored in plain text
+                                        Make a new middleman account
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
@@ -409,7 +409,7 @@ export default function TransferPage() {
                                         Request Password Reset
                                     </CardTitle>
                                     <CardDescription>
-                                        Insecure: Token is base64(userId) - predictable!
+                                        Request a password reset token to reset a middleman password
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
@@ -442,7 +442,7 @@ export default function TransferPage() {
                                         Reset Password
                                     </CardTitle>
                                     <CardDescription>
-                                        Insecure: No token expiry, no one-time use
+                                        Use the reset token to set a new password
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
